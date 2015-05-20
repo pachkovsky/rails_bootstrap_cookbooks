@@ -1,0 +1,30 @@
+#!/bin/bash
+set -e
+
+export HOME=/root
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+apt-get update
+apt-get install -y curl build-essential git-core
+
+curl -L https://get.rvm.io | bash -s stable
+
+export PATH=$PATH:/usr/local/rvm/bin
+source /usr/local/rvm/scripts/rvm
+
+rvm install ruby --default
+rvm use ruby
+
+bundle install
+
+rvm wrapper ruby deploy chef-solo bundle
+
+configure_chef_solo() {
+  cat > $DIR/solo.rb <<EOF
+cookbook_path '$DIR/cookbooks'
+EOF
+}
+
+[[ -a $DIR/solo.rb ]] || configure_chef_solo
+
+deploy_chef-solo -o "recipe[rails::default]" -c $DIR/solo.rb

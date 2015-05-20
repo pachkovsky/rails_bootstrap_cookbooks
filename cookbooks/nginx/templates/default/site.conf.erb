@@ -1,0 +1,43 @@
+upstream <%= node[:application] %> {
+  server unix:///var/www/<%= node[:application] %>/current/tmp/sockets/unicorn.sock;
+}
+
+server {
+  listen 80 default_server;
+  #  server_name "";
+
+  keepalive_timeout 5;
+
+  root /var/www/<%= node[:application] %>/current/public;
+
+  access_log /var/www/<%= node[:application] %>/current/log/nginx.access.log;
+  error_log /var/www/<%= node[:application] %>/current/log/nginx.error.log;
+
+  # this rewrites all the requests to the maintenance.html
+  # page if it exists in the doc root. This is for capistrano's
+  # disable web task
+  if (-f /var/www/<%= node[:application] %>/current/system/maintenance.html) {
+    rewrite ^(.*)$ /maintenance.html last;
+    break;
+  }
+
+  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  proxy_set_header Host $http_host;
+  proxy_set_header X_FORWARDED_PROTO $scheme;
+
+  location / {
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header Host $http_host;
+
+    # If the file exists as a static file serve it directly without
+    # running all the other rewite tests on it
+    if (-f $request_filename) {
+      break;
+    }
+
+    if (!-f $request_filename) {
+      proxy_pass http://<%= node[:application] %>;
+      break;
+    }
+  }
+}
